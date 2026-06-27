@@ -336,10 +336,17 @@ app.post('/api/run/outreach', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
-  console.log(`[server] Dashboard running at http://localhost:${PORT}`);
-  startScheduler();
-  if (process.env.WHATSAPP_ENABLED === 'true') {
-    initWhatsApp().catch((err) => console.error('[whatsapp] init error:', err.message));
-  }
-});
+
+// For Vercel serverless
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`[server] Dashboard running at http://localhost:${PORT}`);
+    startScheduler();
+    if (process.env.WHATSAPP_ENABLED === 'true') {
+      initWhatsApp().catch((err) => console.error('[whatsapp] init error:', err.message));
+    }
+  });
+} else {
+  // For Vercel - export app
+  module.exports = app;
+}
