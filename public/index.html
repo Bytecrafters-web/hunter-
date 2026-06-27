@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lead Hunter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+  :root {
+    --bg: #0b1410;
+    --panel: #111d17;
+    --panel-border: #1d3329;
+    --green: #25d366;
+    --green-dim: #1a9c4a;
+    --text: #e8efe9;
+    --text-dim: #8aa194;
+    --danger: #e25555;
+    --warn: #e2b455;
+    --blue: #6ea8fe;
+  }
+
+  [data-theme="light"] {
+    --bg: #f5f5f5;
+    --panel: #ffffff;
+    --panel-border: #e0e0e0;
+    --green: #128c7e;
+    --green-dim: #075e54;
+    --text: #1a1a1a;
+    --text-dim: #666666;
+    --danger: #dc3545;
+    --warn: #ffc107;
+    --blue: #0d6efd;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Poppins', sans-serif; min-height: 100vh; transition: background 0.3s, color 0.3s; }
+
+  /* === LOGIN === */
+  #login-screen {
+    display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    flex-direction: column; gap: 16px;
+  }
+  #login-screen .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  #login-screen input {
+    background: var(--panel); border: 1px solid var(--panel-border); color: var(--text);
+    padding: 12px 16px; border-radius: 8px; font-size: 14px; width: 260px;
+    font-family: 'Poppins', sans-serif; outline: none;
+  }
+  #login-screen input:focus { border-color: var(--green-dim); }
+
+  /* === TOPBAR === */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px; border-bottom: 1px solid var(--panel-border);
+    position: sticky; top: 0; background: var(--bg); z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
+  .brand-name { font-weight: 700; font-size: 18px; }
+  .brand-sub { color: var(--text-dim); font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button {
+    font-family: 'Poppins', sans-serif; border: 1px solid var(--panel-border);
+    background: var(--panel); color: var(--text); padding: 8px 14px;
+    border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;
+    transition: 0.15s ease; white-space: nowrap;
+  }
+  button:hover { border-color: var(--green-dim); color: var(--green); }
+  button.primary { background: var(--green); color: #04140a; border: none; }
+  button.primary:hover { background: #2ee876; }
+  button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* === LAYOUT === */
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 24px 28px; }
+
+  /* === STATUS BAR === */
+  .status-bar {
+    display: flex; align-items: center; gap: 16px; padding: 10px 16px;
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 10px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .status-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.red { background: var(--danger); }
+  .dot.yellow { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+  .dot.gray { background: #3a4a40; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .pause-badge { font-size: 11px; padding: 3px 8px; border-radius: 20px; background: #2a1414; color: var(--danger); display: none; }
+  .pause-badge.active { display: inline-block; }
+
+  /* === STATS === */
+  .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 10px; padding: 14px 16px; }
+  .stat-label { font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 26px; font-weight: 700; margin-top: 2px; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.warn { color: var(--warn); }
+  .stat-value.blue { color: var(--blue); }
+  .stat-value.small { font-size: 14px; margin-top: 6px; }
+
+  /* === TWO COL LAYOUT === */
+  .grid-2 { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+
+  @media (max-width: 1024px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .side-panel { order: 2; }
+    .main-panel { order: 1; }
+  }
+
+  @media (max-width: 768px) {
+    .topbar { flex-direction: column; gap: 12px; padding: 12px 16px; }
+    .controls { flex-wrap: wrap; justify-content: center; }
+    .controls button { font-size: 12px; padding: 8px 12px; }
+    .status-bar { flex-direction: column; gap: 8px; }
+    table { font-size: 11px; }
+    th, td { padding: 8px 10px; }
+    .panel { border-radius: 8px; }
+  }
+
+  /* === PANEL === */
+  .panel { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; overflow: hidden; }
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 18px; border-bottom: 1px solid var(--panel-border);
+  }
+  .panel-head h2 { font-size: 14px; font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 10px 14px; color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  td { padding: 11px 14px; border-bottom: 1px solid #16221c; vertical-align: top; }
+  tr:hover td { background: #0e1813; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .badge.new { background: #1d3329; color: var(--green); }
+  .badge.contacted { background: #2a2410; color: var(--warn); }
+  .badge.won { background: #1d3329; color: var(--green); }
+  .badge.lost, .badge.skipped { background: #2a1414; color: var(--danger); }
+  .badge.replied { background: #16203a; color: var(--blue); }
+
+  .src-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim); }
+
+  select.status-select {
+    background: #0e1813; color: var(--text); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 4px 8px; font-size: 12px; font-family: 'Poppins', sans-serif;
+  }
+  .empty-state { padding: 36px; text-align: center; color: var(--text-dim); font-size: 13px; }
+
+  /* === LIVE LOG === */
+  .side-panel { display: flex; flex-direction: column; gap: 16px; }
+
+  .log-box { height: 300px; overflow-y: auto; padding: 12px; background: #080e0b; border-top: 1px solid var(--panel-border); }
+  .log-line { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); padding: 2px 0; line-height: 1.5; }
+  .log-line.ok { color: var(--green); }
+  .log-line.err { color: var(--danger); }
+  .log-line.warn { color: var(--warn); }
+
+  /* === WHATSAPP STATUS PANEL === */
+  .wa-status-panel { padding: 16px; }
+  .wa-status-indicator { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .wa-big-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+  .wa-big-dot.green { background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .wa-big-dot.red { background: var(--danger); }
+  .wa-big-dot.yellow { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+  .wa-status-text { font-weight: 600; font-size: 14px; }
+  .wa-status-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .wa-log-mini { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim); background: #080e0b; padding: 8px; border-radius: 6px; height: 80px; overflow-y: auto; }
+
+  /* === QR OVERLAY === */
+  .qr-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .qr-overlay.show { display: flex; }
+  .qr-box { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px; padding: 28px; text-align: center; max-width: 320px; }
+  .qr-box h3 { font-size: 16px; margin-bottom: 6px; }
+  .qr-box p { color: var(--text-dim); font-size: 12px; margin-bottom: 16px; }
+  #qr-canvas-wrap { background: white; padding: 12px; border-radius: 8px; display: inline-block; min-width: 80px; min-height: 80px; }
+  .qr-err { color: var(--danger); font-size: 12px; margin-top: 10px; }
+  .qr-success { color: var(--green); font-size: 14px; font-weight: 600; margin: 12px 0; }
+
+  @media (max-width: 900px) {
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .topbar { flex-direction: column; gap: 12px; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="brand">
+    <span class="brand-dot"></span>
+    <div><div class="brand-name" style="font-size:22px;">LEAD HUNTER</div><div class="brand-sub">automated client acquisition</div></div>
+  </div>
+  <input id="pw-input" type="password" placeholder="Dashboard password" onkeydown="if(event.key==='Enter')login()" />
+  <button class="primary" onclick="login()">Enter →</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" style="display:none;">
+
+  <!-- QR Modal -->
+  <div class="qr-overlay" id="qr-overlay">
+    <div class="qr-box">
+      <h3 id="qr-title">WhatsApp</h3>
+      <p id="qr-sub">Connecting...</p>
+      <div id="qr-canvas-wrap"><div id="qr-canvas"></div></div>
+      <div class="qr-err" id="qr-err"></div>
+      <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;">
+        <button onclick="closeQR()">Close</button>
+        <button onclick="reconnectWA()" style="border-color:var(--warn);color:var(--warn);">🔄 Reconnect</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Blacklist Modal -->
+  <div class="qr-overlay" id="blacklist-overlay">
+    <div class="qr-box" style="max-width:400px;">
+      <h3>🚫 Blacklist</h3>
+      <p>Add phone/email to blacklist (won't receive messages)</p>
+      <div style="margin-bottom:12px;">
+        <input type="text" id="blacklist-phone" placeholder="Phone number" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;">
+        <input type="text" id="blacklist-email" placeholder="Email" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;">
+        <input type="text" id="blacklist-reason" placeholder="Reason (optional)" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;">
+        <button onclick="addToBlacklist()" class="primary" style="width:100%;">Add to Blacklist</button>
+      </div>
+      <div id="blacklist-list" style="max-height:150px;overflow-y:auto;margin-top:12px;"></div>
+      <div style="margin-top:16px;">
+        <button onclick="closeBlacklist()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes Modal -->
+  <div class="qr-overlay" id="notes-overlay">
+    <div class="qr-box" style="max-width:400px;">
+      <h3>📝 Notes</h3>
+      <p id="notes-lead-name"></p>
+      <textarea id="notes-text" rows="4" style="width:100%;padding:8px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;margin-bottom:12px;resize:vertical;"></textarea>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button onclick="saveNotes()" class="primary">Save</button>
+        <button onclick="closeNotes()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Message Templates Modal -->
+  <div class="qr-overlay" id="templates-overlay">
+    <div class="qr-box" style="max-width:500px;max-height:80vh;overflow-y:auto;">
+      <h3>📝 Message Templates</h3>
+      <div style="margin-bottom:16px;">
+        <select id="template-channel" onchange="loadTemplates()" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;">
+          <option value="whatsapp">WhatsApp</option>
+          <option value="email">Email</option>
+        </select>
+        <div id="templates-list"></div>
+      </div>
+      <div style="border-top:1px solid var(--panel-border);padding-top:16px;">
+        <h4 style="margin-bottom:8px;">Add New Template</h4>
+        <input type="text" id="template-category" placeholder="Category (optional, e.g., restaurant, clinic)" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;">
+        <input type="text" id="template-subject" placeholder="Subject (for email only)" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;">
+        <textarea id="template-message" rows="4" placeholder="Message content (use {name} for lead name)" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;resize:vertical;"></textarea>
+        <div id="html-template-container" style="display:none;">
+          <label style="font-size:12px;color:var(--text-dim);margin-bottom:4px;display:block;">HTML Message (for email):</label>
+          <textarea id="template-html-message" rows="4" placeholder="HTML version (optional)" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;resize:vertical;font-family:'JetBrains Mono',monospace;font-size:11px;"></textarea>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;">
+          <input type="checkbox" id="template-default"> Set as default
+        </label>
+        <button onclick="addTemplate()" class="primary" style="width:100%;">Add Template</button>
+      </div>
+      <div style="margin-top:16px;">
+        <button onclick="closeTemplates()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Message Preview Modal -->
+  <div class="qr-overlay" id="preview-overlay">
+    <div class="qr-box" style="max-width:400px;">
+      <h3>👁️ Message Preview</h3>
+      <p id="preview-lead-name"></p>
+      <div id="preview-content" style="background:var(--panel);padding:12px;border-radius:8px;white-space:pre-wrap;font-family:'JetBrains Mono',monospace;font-size:12px;margin-bottom:16px;border:1px solid var(--panel-border);"></div>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button onclick="closePreview()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import CSV Modal -->
+  <div class="qr-overlay" id="import-overlay">
+    <div class="qr-box" style="max-width:400px;">
+      <h3>📤 Import CSV</h3>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">CSV format: name,phone,whatsapp,email,city,category,website</p>
+      <input type="file" id="import-file" accept=".csv" style="width:100%;padding:8px;margin-bottom:12px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;">
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button onclick="importCSV()" class="primary">Import</button>
+        <button onclick="closeImport()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedule Modal -->
+  <div class="qr-overlay" id="schedule-overlay">
+    <div class="qr-box" style="max-width:400px;">
+      <h3>📅 Outreach Schedule</h3>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">Select days to run automated outreach</p>
+      <div id="schedule-days" style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:16px;">
+        <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;">
+          <input type="checkbox" value="0" class="schedule-day"> Sun
+        </label>
+        <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;">
+          <input type="checkbox" value="1" class="schedule-day"> Mon
+        </label>
+        <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;">
+          <input type="checkbox" value="2" class="schedule-day"> Tue
+        </label>
+        <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;">
+          <input type="checkbox" value="3" class="schedule-day"> Wed
+        </label>
+        <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;">
+          <input type="checkbox" value="4" class="schedule-day"> Thu
+        </label>
+        <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;">
+          <input type="checkbox" value="5" class="schedule-day"> Fri
+        </label>
+        <label style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;">
+          <input type="checkbox" value="6" class="schedule-day"> Sat
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button onclick="saveSchedule()" class="primary">Save</button>
+        <button onclick="closeSchedule()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Modal -->
+  <div class="qr-overlay" id="map-overlay">
+    <div class="qr-box" style="max-width:90vw;max-height:90vh;width:800px;height:600px;">
+      <h3>🗺️ Lead Map</h3>
+      <div style="margin-bottom:12px;">
+        <button onclick="toggleMapView()" id="map-view-toggle" style="font-size:12px;padding:6px 12px;">🔥 Show Heat Map</button>
+      </div>
+      <div id="map-container" style="width:100%;height:500px;border-radius:8px;overflow:hidden;"></div>
+      <div style="margin-top:16px;">
+        <button onclick="closeMap()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Summary Modal -->
+  <div class="qr-overlay" id="summary-overlay">
+    <div class="qr-box" style="max-width:400px;">
+      <h3>📧 Daily Summary Email</h3>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">Configure daily email summary of lead activity</p>
+      <label style="font-size:12px;color:var(--text-dim);margin-bottom:4px;display:block;">
+        <input type="checkbox" id="summary-enabled"> Enable daily summary
+      </label>
+      <input type="email" id="summary-email" placeholder="your@email.com" style="width:100%;padding:8px;margin-bottom:12px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;">
+      <label style="font-size:12px;color:var(--text-dim);margin-bottom:4px;display:block;">Send time (HH:MM)</label>
+      <input type="time" id="summary-time" value="09:00" style="width:100%;padding:8px;margin-bottom:12px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;">
+      <div style="display:flex;gap:8px;justify-content:center;">
+        <button onclick="saveDailySummary()" class="primary">Save</button>
+        <button onclick="closeDailySummary()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <div>
+        <div class="brand-name">LEAD HUNTER</div>
+        <div class="brand-sub">automated client acquisition</div>
+      </div>
+      <span id="pause-badge" class="pause-badge">PAUSED</span>
+    </div>
+    <div class="controls">
+      <button onclick="openQR()" id="wa-btn">📱 WhatsApp</button>
+      <button onclick="triggerScrape()" id="scrape-btn">🔍 Scrape Now</button>
+      <button onclick="triggerOutreach()" id="outreach-btn">📤 Send Outreach</button>
+      <button onclick="exportCSV()">📥 Export CSV</button>
+      <button onclick="openImport()" id="import-btn">📤 Import CSV</button>
+      <button onclick="openBlacklist()" id="blacklist-btn">🚫 Blacklist</button>
+      <button onclick="openTemplates()" id="templates-btn">📝 Templates</button>
+      <button onclick="openSchedule()" id="schedule-btn">📅 Schedule</button>
+      <button onclick="triggerAutoFollowup()" id="autofollowup-btn">🔄 Auto Follow-up</button>
+      <button onclick="openDailySummary()" id="summary-btn">📧 Summary</button>
+      <button onclick="toggleNotifications()" id="notifications-btn">🔔 Notifications</button>
+      <button onclick="toggleTheme()" id="theme-btn">🌙</button>
+      <button id="pause-btn" class="danger" onclick="togglePause()">⏸ Pause</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <div class="status-item">
+        <div class="dot" id="wa-dot"></div>
+        <span id="wa-status-text">WhatsApp: checking...</span>
+      </div>
+      <div class="status-item">
+        <div class="dot" id="scrape-dot" style="background:var(--text-dim)"></div>
+        <span id="scrape-status-text">Scrape: idle</span>
+      </div>
+      <div class="status-item">
+        <div class="dot" id="outreach-dot" style="background:var(--text-dim)"></div>
+        <span id="outreach-status-text">Outreach: idle</span>
+      </div>
+      <div class="status-item" style="margin-left:auto;">
+        <span id="last-update" style="color:var(--text-dim);font-size:11px;font-family:'JetBrains Mono',monospace;">live</span>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats" id="stats-row"></div>
+
+    <!-- MAIN GRID -->
+    <div class="grid-2">
+      <!-- LEADS TABLE -->
+      <div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>📋 Leads</h2>
+            <div class="controls">
+              <input type="text" id="search-input" placeholder="Search name/phone/email..." onkeyup="loadLeads()" style="padding:6px 10px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text);border-radius:6px;font-size:12px;width:180px;">
+              <select id="filter-source" onchange="loadLeads()" class="status-select">
+                <option value="">All sources</option>
+                <option value="osm">Local (OSM free)</option>
+                <option value="google_maps">Local (Google)</option>
+                <option value="upwork">Upwork</option>
+              </select>
+              <select id="filter-status" onchange="loadLeads()" class="status-select">
+                <option value="">All status</option>
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="replied">Replied</option>
+                <option value="won">Won</option>
+                <option value="lost">Lost</option>
+              </select>
+              <select id="filter-priority" onchange="loadLeads()" class="status-select">
+                <option value="">All priority</option>
+                <option value="hot">🔥 Hot</option>
+                <option value="warm">⭐ Warm</option>
+                <option value="cold">❄️ Cold</option>
+                <option value="normal">Normal</option>
+              </select>
+              <button onclick="bulkUpdate('contacted')" style="font-size:11px;padding:6px 10px;">Bulk Contacted</button>
+              <button onclick="bulkUpdate('lost')" style="font-size:11px;padding:6px 10px;">Bulk Lost</button>
+              <button onclick="openMap()" id="map-btn" style="font-size:11px;padding:6px 10px;">🗺️ Map</button>
+              <button onclick="toggleView()" id="view-toggle" style="font-size:11px;padding:6px 10px;">📋 Card View</button>
+            </div>
+          </div>
+          <div id="leads-container">
+            <table id="leads-table">
+              <thead>
+                <tr>
+                  <th><input type="checkbox" id="select-all" onchange="toggleSelectAll()"></th>
+                  <th>Name</th><th>Source</th><th>City / Cat</th><th>Contact</th><th>Status</th><th>Priority</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="leads-body"></tbody>
+            </table>
+            <div id="leads-cards" style="display:none;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;"></div>
+          </div>
+          <div id="pagination" style="display:flex;justify-content:center;align-items:center;gap:12px;padding:16px;"></div>
+          <div id="empty-state" class="empty-state" style="display:none;">No leads yet — hit "Scrape Now" to start hunting! 🎯</div>
+        </div>
+      </div>
+
+      <!-- SIDE PANELS -->
+      <div class="side-panel">
+
+        <!-- WhatsApp Status -->
+        <div class="panel">
+          <div class="panel-head"><h2>📱 WhatsApp Status</h2></div>
+          <div class="wa-status-panel">
+            <div class="wa-status-indicator">
+              <div class="wa-big-dot" id="wa-big-dot"></div>
+              <div>
+                <div class="wa-status-text" id="wa-big-status">Checking...</div>
+                <div class="wa-status-sub" id="wa-big-sub"></div>
+              </div>
+            </div>
+            <div class="wa-log-mini" id="wa-log-mini"></div>
+            <button onclick="openQR()" style="width:100%;margin-top:10px;" id="wa-connect-btn">Connect / Scan QR</button>
+          </div>
+        </div>
+
+        <!-- Scrape Status -->
+        <div class="panel">
+          <div class="panel-head"><h2>🔍 Scrape Status</h2></div>
+          <div class="log-box" id="scrape-log">
+            <div class="log-line" style="color:var(--text-dim);">Waiting for scrape run...</div>
+          </div>
+        </div>
+
+        <!-- Analytics -->
+        <div class="panel">
+          <div class="panel-head"><h2>📈 Analytics</h2></div>
+          <div style="padding:16px;">
+            <div style="margin-bottom:16px;">
+              <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">Conversion Rate</div>
+              <div style="font-size:24px;font-weight:600;" id="conversion-rate">0%</div>
+            </div>
+            <canvas id="daily-chart" style="height:120px;margin-bottom:16px;"></canvas>
+            <canvas id="source-chart" style="height:120px;margin-bottom:16px;"></canvas>
+            <canvas id="category-chart" style="height:120px;"></canvas>
+          </div>
+        </div>
+
+        <!-- Follow-up Reminders -->
+        <div class="panel">
+          <div class="panel-head"><h2>📅 Follow-up Reminders</h2></div>
+          <div id="followup-list" style="padding:12px;"></div>
+        </div>
+
+        <!-- Duplicates -->
+        <div class="panel">
+          <div class="panel-head"><h2>🔍 Potential Duplicates</h2></div>
+          <div id="duplicates-list" style="padding:12px;"></div>
+        </div>
+
+        <!-- Outreach Status -->
+        <div class="panel">
+          <div class="panel-head"><h2>📤 Outreach Status</h2></div>
+          <div class="log-box" id="outreach-log">
+            <div class="log-line" style="color:var(--text-dim);">Waiting for outreach run...</div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /grid-2 -->
+  </div><!-- /wrap -->
+</div><!-- /dashboard -->
+
+<script>
+let PASSWORD = '';
+let evtSource = null;
+let qrRendered = null;
+let waConnected = false;
+let selectedLeads = new Set();
+let currentNotesLeadId = null;
+let dailyChart = null;
+let sourceChart = null;
+let categoryChart = null;
+let currentView = 'table';
+let currentPage = 1;
+let leadsPerPage = 50;
+let notificationsEnabled = false;
+let map = null;
+let mapMarkers = [];
+let markerCluster = null;
+let heatLayer = null;
+let currentMapView = 'cluster'; // 'cluster' or 'heat'
+
+// ===== LOGIN =====
+function login() {
+  PASSWORD = document.getElementById('pw-input').value;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  initSSE();
+  loadLeads();
+  loadAnalytics();
+}
+
+// ===== API =====
+async function api(path, opts = {}) {
+  try {
+    const res = await fetch('/api' + path, {
+      ...opts,
+      headers: { 'Content-Type': 'application/json', 'x-dashboard-password': PASSWORD, ...(opts.headers || {}) }
+    });
+    if (res.status === 401) { alert('Wrong password'); location.reload(); return null; }
+    return res.json();
+  } catch (e) {
+    console.error('API error:', e);
+    return null;
+  }
+}
+
+// ===== SSE - LIVE EVENTS =====
+function initSSE() {
+  if (evtSource) evtSource.close();
+
+  console.log('[SSE] Connecting to events...');
+  evtSource = new EventSource(`/api/events?pw=${encodeURIComponent(PASSWORD)}`);
+
+  evtSource.onmessage = (e) => {
+    console.log('[SSE] Received message:', e.data);
+    try {
+      const { type, data } = JSON.parse(e.data);
+      console.log('[SSE] Parsed event:', type, data);
+      handleEvent(type, data);
+    } catch (err) {
+      console.error('[SSE] Parse error:', err);
+    }
+  };
+
+  evtSource.onerror = (err) => {
+    console.error('[SSE] Error:', err);
+    document.getElementById('last-update').textContent = '⚠ reconnecting...';
+    setTimeout(initSSE, 3000);
+  };
+
+  evtSource.onopen = () => {
+    console.log('[SSE] Connection opened');
+    document.getElementById('last-update').textContent = '● live';
+  };
+}
+
+function handleEvent(type, data) {
+  const now = new Date().toLocaleTimeString();
+  document.getElementById('last-update').textContent = '● ' + now;
+
+  if (type === 'stats') {
+    renderStats(data);
+    updateRunStatus(data.runStatus);
+    updateWAStatus(data.whatsappReady);
+  }
+
+  if (type === 'wa_log') {
+    addWALog(data);
+  }
+
+  if (type === 'wa_connected') {
+    waConnected = true;
+    updateWAStatus(true);
+    addWALog('✅ Connected!');
+    if (document.getElementById('qr-overlay').classList.contains('show')) {
+      document.getElementById('qr-title').textContent = '✅ Connected!';
+      document.getElementById('qr-sub').textContent = 'WhatsApp is linked. You can close this.';
+      document.getElementById('qr-canvas').innerHTML = '<div class="qr-success">✅ WhatsApp Connected!</div>';
+    }
+  }
+
+  if (type === 'wa_logged_out') {
+    waConnected = false;
+    updateWAStatus(false);
+    addWALog('⚠️ Logged out — clearing session, will show new QR soon...');
+  }
+
+  if (type === 'wa_qr') {
+    renderQR(data.qr);
+  }
+
+  if (type === 'sched_log') {
+    addSchedLog(data);
+  }
+
+  if (type === 'wa_log' || type === 'sched_log') {
+    // also check if we need to reload leads
+    if (data && (data.includes('Scrape done') || data.includes('sent to') || data.includes('Email sent'))) {
+      loadLeads();
+    }
+  }
+}
+
+// ===== STATS RENDER =====
+function renderStats(s) {
+  const byStatus = Object.fromEntries((s.byStatus || []).map(r => [r.status, r.c]));
+  const bySource = Object.fromEntries((s.bySource || []).map(r => [r.source, r.c]));
+  const waRemaining = Math.max(0, (s.whatsappLimit || 20) - (s.whatsappSentToday || 0));
+  const emailRemaining = Math.max(0, (s.emailLimit || 40) - (s.emailSentToday || 0));
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Leads</div><div class="stat-value">${s.total || 0}</div></div>
+    <div class="stat-card"><div class="stat-label">New</div><div class="stat-value green">${byStatus.new || 0}</div></div>
+    <div class="stat-card"><div class="stat-label">Contacted</div><div class="stat-value warn">${byStatus.contacted || 0}</div></div>
+    <div class="stat-card"><div class="stat-label">Won 🎉</div><div class="stat-value blue">${byStatus.won || 0}</div></div>
+    <div class="stat-card"><div class="stat-label">WhatsApp Left</div><div class="stat-value small">${waRemaining}/${s.whatsappLimit || 20}</div></div>
+    <div class="stat-card"><div class="stat-label">Email Left</div><div class="stat-value small">${emailRemaining}/${s.emailLimit || 40}</div></div>
+  `;
+  const pauseEl = document.getElementById('pause-badge');
+  const btn = document.getElementById('pause-btn');
+  pauseEl.classList.toggle('active', !!s.paused);
+  btn.textContent = s.paused ? '▶ Resume' : '⏸ Pause';
+}
+
+// ===== RUN STATUS =====
+function updateRunStatus(rs) {
+  if (!rs) return;
+  const scrapeDot = document.getElementById('scrape-dot');
+  const scrapeText = document.getElementById('scrape-status-text');
+  const outreachDot = document.getElementById('outreach-dot');
+  const outreachText = document.getElementById('outreach-status-text');
+  const scrapeBtn = document.getElementById('scrape-btn');
+  const outreachBtn = document.getElementById('outreach-btn');
+
+  if (rs.scraping) {
+    scrapeDot.className = 'dot yellow';
+    scrapeText.textContent = 'Scrape: RUNNING...';
+    scrapeBtn.disabled = true;
+    scrapeBtn.textContent = '⏳ Scraping...';
+  } else {
+    scrapeDot.className = 'dot green';
+    scrapeText.textContent = rs.lastScrapeResult ? 'Scrape: Done ✅' : 'Scrape: Idle';
+    scrapeBtn.disabled = false;
+    scrapeBtn.textContent = '🔍 Scrape Now';
+  }
+
+  if (rs.outreaching) {
+    outreachDot.className = 'dot yellow';
+    outreachText.textContent = 'Outreach: SENDING...';
+    outreachBtn.disabled = true;
+    outreachBtn.textContent = '⏳ Sending...';
+  } else {
+    outreachDot.className = 'dot green';
+    outreachText.textContent = rs.lastOutreachResult ? 'Outreach: Done ✅' : 'Outreach: Idle';
+    outreachBtn.disabled = false;
+    outreachBtn.textContent = '📤 Send Outreach';
+  }
+}
+
+// ===== WHATSAPP STATUS =====
+function updateWAStatus(connected) {
+  waConnected = connected;
+  const dot = document.getElementById('wa-dot');
+  const text = document.getElementById('wa-status-text');
+  const bigDot = document.getElementById('wa-big-dot');
+  const bigStatus = document.getElementById('wa-big-status');
+  const bigSub = document.getElementById('wa-big-sub');
+  const connectBtn = document.getElementById('wa-connect-btn');
+
+  if (connected) {
+    dot.className = 'dot green';
+    text.textContent = 'WhatsApp: Connected ✅';
+    bigDot.className = 'wa-big-dot green';
+    bigStatus.textContent = 'Connected ✅';
+    bigSub.textContent = 'Ready to send messages';
+    connectBtn.textContent = '✅ Connected — View QR';
+    connectBtn.style.borderColor = 'var(--green)';
+  } else {
+    dot.className = 'dot red';
+    text.textContent = 'WhatsApp: Disconnected';
+    bigDot.className = 'wa-big-dot red';
+    bigStatus.textContent = 'Disconnected';
+    bigSub.textContent = 'Scan QR to connect';
+    connectBtn.textContent = '📱 Connect WhatsApp';
+    connectBtn.style.borderColor = '';
+  }
+}
+
+function addWALog(msg) {
+  const box = document.getElementById('wa-log-mini');
+  const line = document.createElement('div');
+  line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+  // Keep max 30 lines
+  while (box.children.length > 30) box.removeChild(box.firstChild);
+}
+
+// ===== SCHEDULER LOG =====
+function addSchedLog(msg) {
+  const isOutreach = msg.toLowerCase().includes('outreach') || msg.toLowerCase().includes('whatsapp sent') || msg.toLowerCase().includes('email sent') || msg.toLowerCase().includes('sending');
+  const targetId = isOutreach ? 'outreach-log' : 'scrape-log';
+  const box = document.getElementById(targetId);
+
+  // If this is first real message, clear placeholder
+  if (box.children.length === 1 && box.children[0].style.color === 'var(--text-dim)') {
+    box.innerHTML = '';
+  }
+
+  const line = document.createElement('div');
+  const lower = msg.toLowerCase();
+  line.className = 'log-line' + (msg.includes('✅') || lower.includes('done') ? ' ok' : msg.includes('❌') || lower.includes('error') || lower.includes('failed') ? ' err' : lower.includes('⚠') ? ' warn' : '');
+  line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+  while (box.children.length > 100) box.removeChild(box.firstChild);
+}
+
+// ===== LEADS TABLE =====
+async function loadLeads() {
+  const source = document.getElementById('filter-source')?.value || '';
+  const status = document.getElementById('filter-status')?.value || '';
+  const priority = document.getElementById('filter-priority')?.value || '';
+  const search = document.getElementById('search-input')?.value || '';
+  const params = new URLSearchParams();
+  if (source) params.set('source', source);
+  if (status) params.set('status', status);
+  if (priority) params.set('priority', priority);
+  if (search) params.set('search', search);
+  const allLeads = await api('/leads?' + params.toString());
+  const body = document.getElementById('leads-body');
+  const cards = document.getElementById('leads-cards');
+  const pagination = document.getElementById('pagination');
+  const empty = document.getElementById('empty-state');
+  
+  if (!allLeads || allLeads.length === 0) {
+    body.innerHTML = '';
+    cards.innerHTML = '';
+    pagination.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  
+  empty.style.display = 'none';
+  selectedLeads.clear();
+  
+  // Calculate pagination
+  const totalPages = Math.ceil(allLeads.length / leadsPerPage);
+  if (currentPage > totalPages) currentPage = 1;
+  const startIndex = (currentPage - 1) * leadsPerPage;
+  const endIndex = startIndex + leadsPerPage;
+  const leads = allLeads.slice(startIndex, endIndex);
+  
+  // Render table view
+  body.innerHTML = leads.map(l => `
+    <tr>
+      <td><input type="checkbox" onchange="toggleLeadSelection(${l.id}, this.checked)"></td>
+      <td>
+        <div style="font-weight:600;font-size:13px;">${esc(l.name)}</div>
+        ${l.job_url ? `<a href="${l.job_url}" target="_blank" style="color:var(--green);font-size:11px;">View on Upwork →</a>` : ''}
+        ${l.website ? `<a href="${l.website.startsWith('http')?l.website:'https://'+l.website}" target="_blank" style="color:var(--blue);font-size:11px;">🌐 Website</a>` : ''}
+      </td>
+      <td><span class="src-tag">${l.source === 'upwork' ? 'UPWORK' : l.source === 'osm' ? 'LOCAL-OSM' : 'LOCAL-GM'}</span></td>
+      <td style="font-size:12px;">${esc(l.city || '')}${l.category ? `<br><span style="color:var(--text-dim);font-size:11px;">${esc(l.category)}</span>` : ''}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;">
+        ${l.whatsapp ? `📱 ${l.whatsapp}<br>` : ''}
+        ${l.email ? `✉️ ${l.email}` : (l.contactable ? '<span style="color:var(--text-dim)">no contact found</span>' : '<span style="color:var(--text-dim)">manual apply</span>')}
+      </td>
+      <td>
+        <select class="status-select" onchange="updateStatus(${l.id}, this.value)">
+          ${['new','contacted','replied','won','lost','skipped'].map(s => `<option value="${s}"${l.status===s?' selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <select class="status-select" onchange="updatePriority(${l.id}, this.value)">
+          ${['hot','warm','cold','normal'].map(s => `<option value="${s}"${l.priority===s?' selected':''}>${s === 'hot' ? '🔥' : s === 'warm' ? '⭐' : s === 'cold' ? '❄️' : ''} ${s}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <button onclick="openNotes(${l.id}, '${esc(l.name)}')" style="font-size:11px;padding:4px 8px;">📝</button>
+        <button onclick="previewMessage(${l.id})" style="font-size:11px;padding:4px 8px;">👁️</button>
+        <button onclick="shareWhatsApp('${esc(l.whatsapp || '')}', '${esc(l.name)}')" style="font-size:11px;padding:4px 8px;">📤</button>
+        <button onclick="checkSpamScore(${l.id})" style="font-size:11px;padding:4px 8px;">🛡️</button>
+        <button onclick="addToBlacklistFromLead('${esc(l.whatsapp || '')}', '${esc(l.email || '')}')" style="font-size:11px;padding:4px 8px;">🚫</button>
+      </td>
+    </tr>
+  `).join('');
+  
+  // Render card view
+  cards.innerHTML = leads.map(l => `
+    <div style="background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+        <div>
+          <div style="font-weight:600;font-size:14px;">${esc(l.name)}</div>
+          <span class="src-tag">${l.source === 'upwork' ? 'UPWORK' : l.source === 'osm' ? 'LOCAL-OSM' : 'LOCAL-GM'}</span>
+        </div>
+        <input type="checkbox" onchange="toggleLeadSelection(${l.id}, this.checked)">
+      </div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">
+        ${l.city ? `📍 ${l.city}` : ''}${l.category ? ` • ${l.category}` : ''}
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;margin-bottom:12px;">
+        ${l.whatsapp ? `📱 ${l.whatsapp}<br>` : ''}
+        ${l.email ? `✉️ ${l.email}` : ''}
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <select class="status-select" onchange="updateStatus(${l.id}, this.value)" style="flex:1;">
+          ${['new','contacted','replied','won','lost','skipped'].map(s => `<option value="${s}"${l.status===s?' selected':''}>${s}</option>`).join('')}
+        </select>
+        <select class="status-select" onchange="updatePriority(${l.id}, this.value)" style="flex:1;">
+          ${['hot','warm','cold','normal'].map(s => `<option value="${s}"${l.priority===s?' selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="openNotes(${l.id}, '${esc(l.name)}')" style="flex:1;font-size:11px;">📝</button>
+        <button onclick="previewMessage(${l.id})" style="flex:1;font-size:11px;">👁️</button>
+        <button onclick="shareWhatsApp('${esc(l.whatsapp || '')}', '${esc(l.name)}')" style="flex:1;font-size:11px;">📤</button>
+        <button onclick="checkSpamScore(${l.id})" style="flex:1;font-size:11px;">🛡️</button>
+        <button onclick="addToBlacklistFromLead('${esc(l.whatsapp || '')}', '${esc(l.email || '')}')" style="flex:1;font-size:11px;">🚫</button>
+      </div>
+    </div>
+  `).join('');
+  
+  // Render pagination
+  if (totalPages > 1) {
+    pagination.innerHTML = `
+      <button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} style="font-size:12px;padding:6px 12px;">← Prev</button>
+      <span style="font-size:12px;color:var(--text-dim);">Page ${currentPage} of ${totalPages} (${allLeads.length} leads)</span>
+      <button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} style="font-size:12px;padding:6px 12px;">Next →</button>
+    `;
+  } else {
+    pagination.innerHTML = '';
+  }
+}
+
+function goToPage(page) {
+  currentPage = page;
+  loadLeads();
+}
+
+function esc(s) {
+  return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function toggleView() {
+  currentView = currentView === 'table' ? 'card' : 'table';
+  const table = document.getElementById('leads-table');
+  const cards = document.getElementById('leads-cards');
+  const btn = document.getElementById('view-toggle');
+  
+  if (currentView === 'table') {
+    table.style.display = 'table';
+    cards.style.display = 'none';
+    btn.textContent = '📋 Card View';
+  } else {
+    table.style.display = 'none';
+    cards.style.display = 'grid';
+    btn.textContent = '📊 Table View';
+  }
+}
+
+async function updateStatus(id, status) {
+  await api(`/leads/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+  // Stats will auto-update via SSE
+  
+  // Show celebration notification for won deals
+  if (status === 'won') {
+    showNotification('🎉 Deal Won!', 'Congratulations! A lead has been marked as won.');
+  }
+}
+
+async function updatePriority(id, priority) {
+  await api(`/leads/${id}/priority`, { method: 'POST', body: JSON.stringify({ priority }) });
+}
+
+function toggleLeadSelection(id, checked) {
+  if (checked) {
+    selectedLeads.add(id);
+  } else {
+    selectedLeads.delete(id);
+  }
+}
+
+function toggleSelectAll() {
+  const checkbox = document.getElementById('select-all');
+  const checkboxes = document.querySelectorAll('#leads-body input[type="checkbox"]');
+  checkboxes.forEach(cb => {
+    cb.checked = checkbox.checked;
+    const id = parseInt(cb.getAttribute('onchange').match(/\d+/)[0]);
+    if (checkbox.checked) {
+      selectedLeads.add(id);
+    } else {
+      selectedLeads.delete(id);
+    }
+  });
+}
+
+async function bulkUpdate(status) {
+  if (selectedLeads.size === 0) {
+    alert('Please select leads first');
+    return;
+  }
+  if (!confirm(`Mark ${selectedLeads.size} leads as ${status}?`)) return;
+  await api('/leads/bulk', { method: 'POST', body: JSON.stringify({ ids: Array.from(selectedLeads), status }) });
+  selectedLeads.clear();
+  document.getElementById('select-all').checked = false;
+  loadLeads();
+}
+
+function openNotes(id, name) {
+  currentNotesLeadId = id;
+  document.getElementById('notes-lead-name').textContent = name;
+  document.getElementById('notes-text').value = '';
+  document.getElementById('notes-overlay').classList.add('show');
+}
+
+function closeNotes() {
+  document.getElementById('notes-overlay').classList.remove('show');
+  currentNotesLeadId = null;
+}
+
+async function saveNotes() {
+  const notes = document.getElementById('notes-text').value;
+  await api(`/leads/${currentNotesLeadId}/notes`, { method: 'POST', body: JSON.stringify({ notes }) });
+  closeNotes();
+}
+
+function openBlacklist() {
+  document.getElementById('blacklist-overlay').classList.add('show');
+  loadBlacklist();
+}
+
+function closeBlacklist() {
+  document.getElementById('blacklist-overlay').classList.remove('show');
+}
+
+async function loadBlacklist() {
+  const blacklist = await api('/blacklist');
+  const list = document.getElementById('blacklist-list');
+  if (!blacklist || blacklist.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-dim);font-size:12px;">No blacklisted numbers</div>';
+    return;
+  }
+  list.innerHTML = blacklist.map(b => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--panel);margin-bottom:4px;border-radius:4px;font-size:11px;">
+      <div>
+        <div>${b.phone || '-'}</div>
+        <div style="color:var(--text-dim);">${b.email || '-'}</div>
+      </div>
+      <button onclick="removeFromBlacklist(${b.id})" style="font-size:10px;padding:4px 8px;">Remove</button>
+    </div>
+  `).join('');
+}
+
+async function addToBlacklist() {
+  const phone = document.getElementById('blacklist-phone').value;
+  const email = document.getElementById('blacklist-email').value;
+  const reason = document.getElementById('blacklist-reason').value;
+  if (!phone && !email) {
+    alert('Please enter phone or email');
+    return;
+  }
+  await api('/blacklist', { method: 'POST', body: JSON.stringify({ phone, email, reason }) });
+  document.getElementById('blacklist-phone').value = '';
+  document.getElementById('blacklist-email').value = '';
+  document.getElementById('blacklist-reason').value = '';
+  loadBlacklist();
+}
+
+function addToBlacklistFromLead(phone, email) {
+  document.getElementById('blacklist-phone').value = phone;
+  document.getElementById('blacklist-email').value = email;
+  openBlacklist();
+}
+
+async function removeFromBlacklist(id) {
+  await api(`/blacklist/${id}`, { method: 'DELETE' });
+  loadBlacklist();
+}
+
+async function exportCSV() {
+  window.location.href = '/api/leads/export';
+}
+
+function openTemplates() {
+  document.getElementById('templates-overlay').classList.add('show');
+  loadTemplates();
+}
+
+function closeTemplates() {
+  document.getElementById('templates-overlay').classList.remove('show');
+}
+
+async function loadTemplates() {
+  const channel = document.getElementById('template-channel').value;
+  const templates = await api(`/templates?channel=${channel}`);
+  const list = document.getElementById('templates-list');
+  const htmlContainer = document.getElementById('html-template-container');
+  
+  // Show HTML textarea for email channel
+  htmlContainer.style.display = channel === 'email' ? 'block' : 'none';
+  
+  if (!templates || templates.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-dim);font-size:12px;">No templates yet</div>';
+    return;
+  }
+  list.innerHTML = templates.map(t => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--panel);margin-bottom:4px;border-radius:4px;font-size:11px;">
+      <div>
+        <div>${t.category ? `<span style="color:var(--green);">${t.category}</span> - ` : ''}${t.is_default ? '⭐ ' : ''}${t.message.substring(0, 50)}...</div>
+        ${t.subject ? `<div style="color:var(--text-dim);">Subject: ${t.subject}</div>` : ''}
+        ${t.html_message ? `<div style="color:var(--blue);font-size:10px;">📄 HTML template</div>` : ''}
+      </div>
+      <div style="display:flex;gap:4px;">
+        ${!t.is_default ? `<button onclick="setDefaultTemplate(${t.id})" style="font-size:10px;padding:4px 8px;">Set Default</button>` : ''}
+        <button onclick="deleteTemplate(${t.id})" style="font-size:10px;padding:4px 8px;color:var(--danger);">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function addTemplate() {
+  const channel = document.getElementById('template-channel').value;
+  const category = document.getElementById('template-category').value;
+  const subject = document.getElementById('template-subject').value;
+  const message = document.getElementById('template-message').value;
+  const htmlMessage = document.getElementById('template-html-message').value;
+  const isDefault = document.getElementById('template-default').checked;
+  
+  if (!message) {
+    alert('Please enter message content');
+    return;
+  }
+  
+  await api('/templates', { method: 'POST', body: JSON.stringify({ channel, category, subject, message, htmlMessage, isDefault }) });
+  document.getElementById('template-category').value = '';
+  document.getElementById('template-subject').value = '';
+  document.getElementById('template-message').value = '';
+  document.getElementById('template-html-message').value = '';
+  document.getElementById('template-default').checked = false;
+  loadTemplates();
+}
+
+async function deleteTemplate(id) {
+  if (!confirm('Delete this template?')) return;
+  await api(`/templates/${id}`, { method: 'DELETE' });
+  loadTemplates();
+}
+
+async function setDefaultTemplate(id) {
+  await api(`/templates/${id}/default`, { method: 'POST' });
+  loadTemplates();
+}
+
+async function previewMessage(leadId) {
+  const leads = await api('/leads');
+  const lead = leads.find(l => l.id === leadId);
+  if (!lead) return;
+  
+  const result = await api('/preview-message', { method: 'POST', body: JSON.stringify({ lead }) });
+  document.getElementById('preview-lead-name').textContent = lead.name;
+  document.getElementById('preview-content').textContent = result.message;
+  document.getElementById('preview-overlay').classList.add('show');
+}
+
+function closePreview() {
+  document.getElementById('preview-overlay').classList.remove('show');
+}
+
+function openImport() {
+  document.getElementById('import-overlay').classList.add('show');
+}
+
+function closeImport() {
+  document.getElementById('import-overlay').classList.remove('show');
+  document.getElementById('import-file').value = '';
+}
+
+async function importCSV() {
+  const fileInput = document.getElementById('import-file');
+  const file = fileInput.files[0];
+  if (!file) {
+    alert('Please select a CSV file');
+    return;
+  }
+
+  const text = await file.text();
+  const lines = text.split('\n').filter(l => l.trim());
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  
+  const leads = [];
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim());
+    if (values.length < 2) continue;
+    
+    const lead = {
+      name: values[headers.indexOf('name')] || values[0],
+      phone: values[headers.indexOf('phone')] || values[1],
+      whatsapp: values[headers.indexOf('whatsapp')] || values[2] || null,
+      email: values[headers.indexOf('email')] || values[3] || null,
+      city: values[headers.indexOf('city')] || values[4] || null,
+      category: values[headers.indexOf('category')] || values[5] || null,
+      website: values[headers.indexOf('website')] || values[6] || null,
+      source: 'import',
+      contactable: true
+    };
+    leads.push(lead);
+  }
+
+  if (leads.length === 0) {
+    alert('No valid leads found in CSV');
+    return;
+  }
+
+  const result = await api('/leads/import', { method: 'POST', body: JSON.stringify({ leads }) });
+  if (result.ok) {
+    alert(`Successfully imported ${leads.length} leads`);
+    closeImport();
+    loadLeads();
+  } else {
+    alert('Import failed');
+  }
+}
+
+function shareWhatsApp(phone, name) {
+  if (!phone) {
+    alert('No WhatsApp number available for this lead');
+    return;
+  }
+  const url = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${name}, I'd like to discuss...`)}`;
+  window.open(url, '_blank');
+}
+
+async function checkSpamScore(id) {
+  const leads = await api('/leads');
+  const lead = leads.find(l => l.id === id);
+  if (!lead) {
+    alert('Lead not found');
+    return;
+  }
+  
+  const result = await api('/check-spam', { method: 'POST', body: JSON.stringify({ lead }) });
+  const spamScore = result.spamScore;
+  
+  let riskLevel = 'Low';
+  let color = 'green';
+  if (spamScore > 30) {
+    riskLevel = 'Medium';
+    color = 'orange';
+  }
+  if (spamScore > 60) {
+    riskLevel = 'High';
+    color = 'red';
+  }
+  
+  alert(`Spam Score: ${spamScore}/100\nRisk Level: ${riskLevel}\n\nLower scores indicate higher quality leads.`);
+}
+
+function openMap() {
+  document.getElementById('map-overlay').classList.add('show');
+  initMap();
+}
+
+function closeMap() {
+  document.getElementById('map-overlay').classList.remove('show');
+  if (map) {
+    map.remove();
+    map = null;
+  }
+  mapMarkers = [];
+  markerCluster = null;
+  heatLayer = null;
+  currentMapView = 'cluster';
+}
+
+async function initMap() {
+  const leads = await api('/leads');
+  
+  // Initialize map centered on a default location
+  map = L.map('map-container').setView([20, 0], 2);
+  
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+  
+  // Group leads by city
+  const cityGroups = {};
+  leads.forEach(lead => {
+    if (lead.city) {
+      if (!cityGroups[lead.city]) {
+        cityGroups[lead.city] = [];
+      }
+      cityGroups[lead.city].push(lead);
+    }
+  });
+  
+  // Simple city coordinate mapping (in production, use a geocoding API)
+  const cityCoords = {
+    'New York': [40.7128, -74.0060],
+    'London': [51.5074, -0.1278],
+    'Paris': [48.8566, 2.3522],
+    'Tokyo': [35.6762, 139.6503],
+    'Dubai': [25.2048, 55.2708],
+    'Singapore': [1.3521, 103.8198],
+    'Sydney': [-33.8688, 151.2093],
+    'Berlin': [52.5200, 13.4050],
+    'Toronto': [43.6532, -79.3832],
+    'Mumbai': [19.0760, 72.8777],
+    'Los Angeles': [34.0522, -118.2437],
+    'Chicago': [41.8781, -87.6298],
+    'Shanghai': [31.2304, 121.4737],
+    'Sao Paulo': [-23.5505, -46.6333],
+    'Mexico City': [19.4326, -99.1332]
+  };
+  
+  // Prepare heat map data
+  const heatData = [];
+  
+  // Create marker cluster group
+  markerCluster = L.markerClusterGroup({
+    iconCreateFunction: function(cluster) {
+      return L.divIcon({
+        html: '<div style="background-color: #25d366; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">' + cluster.getChildCount() + '</div>',
+        className: 'custom-cluster-icon',
+        iconSize: [30, 30]
+      });
+    }
+  });
+  
+  // Add markers for cities with leads
+  Object.keys(cityGroups).forEach(city => {
+    const coords = cityCoords[city];
+    if (coords) {
+      const leadsInCity = cityGroups[city];
+      const marker = L.marker(coords);
+      marker.bindPopup(`
+        <div style="font-family:Arial,sans-serif;">
+          <strong>${city}</strong><br>
+          ${leadsInCity.length} lead(s)<br>
+          <small>Click to view leads</small>
+        </div>
+      `);
+      markerCluster.addLayer(marker);
+      mapMarkers.push(marker);
+      
+      // Add to heat map data with intensity based on lead count
+      for (let i = 0; i < leadsInCity.length; i++) {
+        heatData.push([coords[0], coords[1], 0.5]);
+      }
+    }
+  });
+  
+  // Add cluster group to map
+  map.addLayer(markerCluster);
+  
+  // If no cities found, show a message
+  if (Object.keys(cityGroups).length === 0) {
+    alert('No leads with city information found. Add city data to leads to see them on the map.');
+  }
+  
+  // Store heat data for toggling
+  window.heatData = heatData;
+}
+
+function toggleMapView() {
+  if (!map) return;
+  
+  if (currentMapView === 'cluster') {
+    // Switch to heat map
+    if (markerCluster) {
+      map.removeLayer(markerCluster);
+    }
+    
+    if (window.heatData && window.heatData.length > 0) {
+      heatLayer = L.heatLayer(window.heatData, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 10,
+        gradient: {
+          0.0: 'blue',
+          0.3: 'cyan',
+          0.5: 'lime',
+          0.7: 'yellow',
+          1.0: 'red'
+        }
+      }).addTo(map);
+    }
+    
+    currentMapView = 'heat';
+    document.getElementById('map-view-toggle').textContent = '📍 Show Markers';
+  } else {
+    // Switch to cluster view
+    if (heatLayer) {
+      map.removeLayer(heatLayer);
+    }
+    
+    if (markerCluster) {
+      map.addLayer(markerCluster);
+    }
+    
+    currentMapView = 'cluster';
+    document.getElementById('map-view-toggle').textContent = '🔥 Show Heat Map';
+  }
+}
+
+function openDailySummary() {
+  document.getElementById('summary-overlay').classList.add('show');
+  loadDailySummary();
+}
+
+function closeDailySummary() {
+  document.getElementById('summary-overlay').classList.remove('show');
+}
+
+async function loadDailySummary() {
+  const summary = await api('/daily-summary');
+  document.getElementById('summary-enabled').checked = summary.enabled;
+  document.getElementById('summary-email').value = summary.email || '';
+  document.getElementById('summary-time').value = summary.time || '09:00';
+}
+
+async function saveDailySummary() {
+  const enabled = document.getElementById('summary-enabled').checked;
+  const email = document.getElementById('summary-email').value;
+  const time = document.getElementById('summary-time').value;
+  
+  if (enabled && !email) {
+    alert('Please provide an email address to receive daily summaries');
+    return;
+  }
+  
+  await api('/daily-summary', { method: 'POST', body: JSON.stringify({ enabled, email, time }) });
+  closeDailySummary();
+  alert('Daily summary settings saved successfully');
+}
+
+function openSchedule() {
+  document.getElementById('schedule-overlay').classList.add('show');
+  loadSchedule();
+}
+
+function closeSchedule() {
+  document.getElementById('schedule-overlay').classList.remove('show');
+}
+
+async function loadSchedule() {
+  const schedule = await api('/schedule');
+  const checkboxes = document.querySelectorAll('.schedule-day');
+  checkboxes.forEach(cb => {
+    cb.checked = schedule.days.includes(parseInt(cb.value));
+  });
+}
+
+async function saveSchedule() {
+  const checkboxes = document.querySelectorAll('.schedule-day');
+  const days = Array.from(checkboxes).filter(cb => cb.checked).map(cb => parseInt(cb.value));
+  
+  if (days.length === 0) {
+    alert('Please select at least one day');
+    return;
+  }
+  
+  await api('/schedule', { method: 'POST', body: JSON.stringify({ days }) });
+  closeSchedule();
+  alert('Schedule saved successfully');
+}
+
+async function triggerAutoFollowup() {
+  const result = await api('/auto-followup', { method: 'POST' });
+  if (result.ok) {
+    alert(`Auto follow-up sent to ${result.sent} leads (out of ${result.total} eligible)`);
+  } else {
+    alert(result.message || 'Auto follow-up failed');
+  }
+}
+
+function toggleNotifications() {
+  if (!('Notification' in window)) {
+    alert('This browser does not support desktop notifications');
+    return;
+  }
+  
+  if (Notification.permission === 'granted') {
+    notificationsEnabled = !notificationsEnabled;
+    document.getElementById('notifications-btn').textContent = notificationsEnabled ? '🔔 On' : '🔕 Off';
+    localStorage.setItem('notifications', notificationsEnabled);
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(permission => {
+      if (permission === 'granted') {
+        notificationsEnabled = true;
+        document.getElementById('notifications-btn').textContent = '🔔 On';
+        localStorage.setItem('notifications', notificationsEnabled);
+        new Notification('Lead Hunter', {
+          body: 'Notifications enabled!',
+          icon: '🎯'
+        });
+      }
+    });
+  } else {
+    alert('Notifications are blocked. Please enable them in your browser settings.');
+  }
+}
+
+function showNotification(title, body) {
+  if (notificationsEnabled && Notification.permission === 'granted') {
+    new Notification(title, {
+      body: body,
+      icon: '🎯'
+    });
+  }
+}
+
+// Load notification preference on page load
+if (localStorage.getItem('notifications') === 'true') {
+  notificationsEnabled = true;
+  document.getElementById('notifications-btn').textContent = '🔔 On';
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const currentTheme = html.getAttribute('data-theme');
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', newTheme);
+  document.getElementById('theme-btn').textContent = newTheme === 'light' ? '☀️' : '🌙';
+  localStorage.setItem('theme', newTheme);
+}
+
+// Load saved theme on page load
+if (localStorage.getItem('theme')) {
+  document.documentElement.setAttribute('data-theme', localStorage.getItem('theme'));
+  document.getElementById('theme-btn').textContent = localStorage.getItem('theme') === 'light' ? '☀️' : '🌙';
+}
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown', (e) => {
+  // Don't trigger shortcuts when typing in inputs
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  
+  // Ctrl/Cmd + S: Scrape
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    triggerScrape();
+  }
+  
+  // Ctrl/Cmd + O: Outreach
+  if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+    e.preventDefault();
+    triggerOutreach();
+  }
+  
+  // Ctrl/Cmd + E: Export CSV
+  if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+    e.preventDefault();
+    exportCSV();
+  }
+  
+  // Ctrl/Cmd + T: Templates
+  if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+    e.preventDefault();
+    openTemplates();
+  }
+  
+  // Ctrl/Cmd + B: Blacklist
+  if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+    e.preventDefault();
+    openBlacklist();
+  }
+  
+  // Ctrl/Cmd + D: Toggle theme
+  if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+    e.preventDefault();
+    toggleTheme();
+  }
+  
+  // Ctrl/Cmd + P: Pause/Resume
+  if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+    e.preventDefault();
+    togglePause();
+  }
+  
+  // Escape: Close modals
+  if (e.key === 'Escape') {
+    closeQR();
+    closeNotes();
+    closeBlacklist();
+    closeTemplates();
+    closePreview();
+  }
+  
+  // F: Focus search
+  if (e.key === 'f' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    document.getElementById('search-input')?.focus();
+  }
+});
+
+// ===== ANALYTICS =====
+async function loadAnalytics() {
+  const analytics = await api('/analytics');
+  if (!analytics) return;
+
+  // Update conversion rate
+  document.getElementById('conversion-rate').textContent = analytics.conversionRate + '%';
+
+  // Daily leads chart
+  const dailyCtx = document.getElementById('daily-chart').getContext('2d');
+  const dailyLabels = analytics.dailyLeads.map(d => d.date);
+  const dailyData = analytics.dailyLeads.map(d => d.count);
+
+  if (dailyChart) dailyChart.destroy();
+  dailyChart = new Chart(dailyCtx, {
+    type: 'line',
+    data: {
+      labels: dailyLabels,
+      datasets: [{
+        label: 'Leads per day',
+        data: dailyData,
+        borderColor: '#25d366',
+        backgroundColor: 'rgba(37, 211, 102, 0.1)',
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8aa194', font: { size: 10 } }, grid: { color: '#1d3329' } },
+        y: { ticks: { color: '#8aa194', font: { size: 10 } }, grid: { color: '#1d3329' } }
+      }
+    }
+  });
+
+  // Source pie chart
+  const sourceCtx = document.getElementById('source-chart').getContext('2d');
+  const sourceData = analytics.byCity.map(c => c.count);
+  const sourceLabels = analytics.byCity.map(c => c.city);
+
+  if (sourceChart) sourceChart.destroy();
+  sourceChart = new Chart(sourceCtx, {
+    type: 'doughnut',
+    data: {
+      labels: sourceLabels,
+      datasets: [{
+        data: sourceData,
+        backgroundColor: ['#25d366', '#6ea8fe', '#e2b455', '#e25555', '#a855f7'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#8aa194', font: { size: 10 }, boxWidth: 12 } }
+      }
+    }
+  });
+
+  // Category bar chart
+  const categoryCtx = document.getElementById('category-chart').getContext('2d');
+  const categoryData = analytics.byCategory.map(c => c.count);
+  const categoryLabels = analytics.byCategory.map(c => c.category);
+
+  if (categoryChart) categoryChart.destroy();
+  categoryChart = new Chart(categoryCtx, {
+    type: 'bar',
+    data: {
+      labels: categoryLabels,
+      datasets: [{
+        label: 'Leads',
+        data: categoryData,
+        backgroundColor: ['#25d366', '#6ea8fe', '#e2b455', '#e25555', '#a855f7', '#f472b6', '#34d399', '#fbbf24'],
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8aa194', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#8aa194', font: { size: 10 } }, grid: { color: '#1d3329' } }
+      }
+    }
+  });
+
+  // Render follow-up reminders
+  const followupList = document.getElementById('followup-list');
+  if (!analytics.followUps || analytics.followUps.length === 0) {
+    followupList.innerHTML = '<div style="color:var(--text-dim);font-size:12px;">No follow-ups due this week</div>';
+  } else {
+    followupList.innerHTML = analytics.followUps.map(f => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--panel);margin-bottom:4px;border-radius:4px;font-size:11px;border-left:3px solid var(--warn);">
+        <div>
+          <div style="font-weight:600;">${esc(f.name)}</div>
+          <div style="color:var(--text-dim);">${f.city || ''} • ${f.follow_up_date}</div>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <button onclick="setFollowUpDate(${f.id}, '')" style="font-size:10px;padding:4px 8px;">✓ Done</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Render duplicates
+  const duplicatesList = document.getElementById('duplicates-list');
+  if (!analytics.duplicates || analytics.duplicates.length === 0) {
+    duplicatesList.innerHTML = '<div style="color:var(--text-dim);font-size:12px;">No duplicates found</div>';
+  } else {
+    duplicatesList.innerHTML = analytics.duplicates.map(d => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--panel);margin-bottom:4px;border-radius:4px;font-size:11px;border-left:3px solid var(--danger);">
+        <div>
+          <div style="font-weight:600;">${d.phone || d.email}</div>
+          <div style="color:var(--text-dim);">${d.count} entries</div>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+// ===== QR MODAL =====
+function openQR() {
+  document.getElementById('qr-overlay').classList.add('show');
+  pollQR();
+}
+function closeQR() {
+  document.getElementById('qr-overlay').classList.remove('show');
+}
+
+async function pollQR() {
+  const data = await api('/whatsapp/qr');
+  if (!data) return;
+  const title = document.getElementById('qr-title');
+  const sub = document.getElementById('qr-sub');
+  const err = document.getElementById('qr-err');
+
+  if (data.error) {
+    title.textContent = '⚠️ WhatsApp Error';
+    sub.textContent = '';
+    err.textContent = data.error;
+    document.getElementById('qr-canvas').innerHTML = '';
+    return;
+  }
+  err.textContent = '';
+
+  if (data.ready) {
+    title.textContent = '✅ WhatsApp Connected';
+    sub.textContent = 'You can close this window.';
+    document.getElementById('qr-canvas').innerHTML = '<div class="qr-success" style="padding:20px;">✅ Connected!</div>';
+    return;
+  }
+
+  if (data.qr) {
+    renderQR(data.qr);
+  } else {
+    title.textContent = 'Starting WhatsApp...';
+    sub.textContent = 'Generating QR code, please wait a few seconds.';
+    document.getElementById('qr-canvas').innerHTML = '<div style="padding:20px;color:#666;font-size:12px;">Generating...</div>';
+    setTimeout(pollQR, 2000);
+  }
+}
+
+function renderQR(qrData) {
+  if (!qrData || qrData === qrRendered) return;
+  qrRendered = qrData;
+  const wrap = document.getElementById('qr-canvas');
+  wrap.innerHTML = '';
+  document.getElementById('qr-title').textContent = 'Scan with WhatsApp';
+  document.getElementById('qr-sub').textContent = 'Phone → WhatsApp → Linked Devices → Link a Device';
+  new QRCode(wrap, { text: qrData, width: 220, height: 220 });
+}
+
+async function reconnectWA() {
+  // Delete session via server and re-init
+  addWALog('Manual reconnect requested...');
+  closeQR();
+  // Re-open after short delay
+  setTimeout(() => { openQR(); pollQR(); }, 1500);
+}
+
+// ===== ACTIONS =====
+async function triggerScrape() {
+  const r = await api('/run/scrape', { method: 'POST' });
+  if (r) {
+    addSchedLog(r.message || 'Scrape triggered.');
+    if (!r.ok) alert(r.message);
+  }
+}
+
+async function triggerOutreach() {
+  const r = await api('/run/outreach', { method: 'POST' });
+  if (r) {
+    addSchedLog(r.message || 'Outreach triggered.');
+    if (!r.ok) alert(r.message);
+  }
+}
+
+async function togglePause() {
+  const s = await api('/stats');
+  if (!s) return;
+  await api(s.paused ? '/resume' : '/pause', { method: 'POST' });
+}
+</script>
+</body>
+</html>

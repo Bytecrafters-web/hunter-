@@ -1,0 +1,23 @@
+{
+  "name": "lead-hunter",
+  "version": "2.0.0",
+  "description": "Automated client lead-hunting tool - scrapes local business + Upwork leads, enriches contact info, auto-outreach via WhatsApp + Email, live dashboard.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "scrape:now": "node src/scrapers/runOnce.js"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.23",
+    "axios": "^1.7.2",
+    "better-sqlite3": "^11.3.0",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.14",
+    "pino": "^9.3.2",
+    "rss-parser": "^3.13.0"
+  }
+}
