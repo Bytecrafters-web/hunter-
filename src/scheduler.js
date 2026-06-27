@@ -41,7 +41,7 @@ async function runScrape() {
   const cities = (process.env.SEARCH_CITIES || '').split(',').map(s => s.trim()).filter(Boolean);
   const niches = (process.env.SEARCH_NICHES || '').split(',').map(s => s.trim()).filter(Boolean);
   const keywords = (process.env.UPWORK_KEYWORDS || '').split(',').map(s => s.trim()).filter(Boolean);
-  const localSource = (process.env.LEAD_SOURCE_LOCAL || 'osm').toLowerCase();
+  const localSource = (process.env.LEAD_SOURCE_LOCAL || 'google').toLowerCase();
 
   log(`Cities: ${cities.join(', ')} | Niches: ${niches.join(', ')}`);
 
